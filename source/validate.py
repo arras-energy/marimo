@@ -56,13 +56,15 @@ def _(mo, os, rootdir, target):
 
 
 @app.cell
-def _(get_target, mo, os, rootdir, set_target, target):
+def _(get_target, mo, os, rootdir, set_target, subprocess, target):
     mo.stop(not get_target())
-    os.system(
-        f"cd {rootdir.value[0].path}; gridlabd -W {target.value.replace('./', '')} -D keep_progress=TRUE --validate"
-    )
-    set_target(None)
-    return
+    with mo.status.spinner(f"Running {target.value.replace('./', '')}/autotest...") as _spinner:
+        result = subprocess.run(["gridlabd.bin","-W",os.path.join(rootdir.value[0].path,target.value.replace('./', '')),
+            "-D","keep_progress=TRUE","--validate"],stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+        with mo.redirect_stdout():
+            print(result.stdout.decode('utf-8'))
+        set_target(None)
+    return (result,)
 
 
 @app.cell
@@ -93,25 +95,37 @@ def _(os, re, rootdir, target):
 
 
 @app.cell
-def _(findresults, mo, os, rootdir, target):
+def _(findresults, get_target, mo, os, rootdir, sys, target):
+    get_target
     mo.stop(not 
             os.path.exists(os.path.join(rootdir.value[0].path,target.value.replace('./',''),"validate.txt")),"HINT: Click 'Start' to run validation in this target folder")
 
     def readfile(path):
         with open(path,"r") as fh:
-            return fh.read()
+            try:
+                return fh.read()
+            except Exception as err:
+                e_type,e_value,e_trace = sys.exc_info()
+                return f"ERROR: {e_type.__name__}: {e_value}"
 
     def subtabs(path):
         return {os.path.basename(x):mo.md(f"~~~\n{readfile(os.path.join(path,x))}\n~~~""") for x in os.listdir(path) if os.stat(os.path.join(path,x)).st_size > 0}
 
     results = {os.path.basename(x):mo.ui.tabs(subtabs(x),lazy=True) for x in findresults(target.value)}
-    return readfile, results, subtabs
+    with open(os.path.join(rootdir.value[0].path,target.value.replace('./',''),"validate.txt"),"r") as fh:
+        results["Summary"] = mo.md(f"""~~~\n{fh.read()}\n~~~""")
+    return fh, readfile, results, subtabs
 
 
 @app.cell
 def _(mo, results):
-    mo.stop(not results,"All tests succeeded")
-    mo.vstack([mo.md(f"{len(results)} tests failed"),mo.ui.tabs(results,lazy=True)])
+    mo.stop(not results, "All tests succeeded")
+    mo.vstack(
+        [
+            mo.md(f"{len(results) - 1} tests failed"),
+            mo.ui.tabs(results, lazy=True, value="Summary"),
+        ]
+    )
     return
 
 
@@ -119,7 +133,8 @@ def _(mo, results):
 def _():
     import marimo as mo
     import sys, os, json, re
-    return json, mo, os, re, sys
+    import subprocess
+    return json, mo, os, re, subprocess, sys
 
 
 if __name__ == "__main__":
