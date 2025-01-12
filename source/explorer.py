@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.6.11"
+__generated_with = "0.9.31-dev0"
 app = marimo.App(width="full")
 
 
@@ -24,7 +24,7 @@ def __():
     # Options
     #
     munge_columns = True  # prevent dots from appear in column names (fixes bug in dataframe explorer)
-    return munge_columns,
+    return (munge_columns,)
 
 
 @app.cell
@@ -39,7 +39,7 @@ def __(mo):
         label="Upload models",
     )
     uploads
-    return uploads,
+    return (uploads,)
 
 
 @app.cell
@@ -54,7 +54,7 @@ def __(mo, os, uploads):
         allow_select_none=True,
         value=_names[0] if len(_names) > 0 else None,
     )
-    return files,
+    return (files,)
 
 
 @app.cell
@@ -372,19 +372,19 @@ def __(columns, data, mo, pd, px):
             return mo.md("No geodata found")
 
         # Nodes
-        map = px.scatter_mapbox(
+        map = px.scatter_map(
             nodes,
             lat="latitude",
             lon="longitude",
             hover_name="name",
             text="name" if get_labels() else None,
-            zoom=5,
+            zoom=15,
             hover_data=(
                 dict([(x, x in columns.value) for x in data.columns])
                 if columns.value
                 else None
             ),
-            mapbox_style="open-street-map",
+            map_style="open-street-map",
         )
 
         # Lines
@@ -413,7 +413,7 @@ def __(columns, data, mo, pd, px):
                 hoverinfo="skip",
                 lat=lats,
                 lon=lons,
-                line=dict(color="lightblue"),
+                line=dict(color="darkblue"),
                 mode="lines",
                 subplot="mapbox",
                 type="scattermapbox",
@@ -497,4 +497,3 @@ async def __():
 
 if __name__ == "__main__":
     app.run()
-
